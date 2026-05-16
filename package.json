@@ -1,0 +1,15 @@
+{
+  "name": "cmux-workspace",
+  "version": "0.1.0",
+  "description": "CLI for spawning cmux workspaces with git worktrees and per-repo setup commands",
+  "type": "module",
+  "bin": {
+    "cmw": "./src/cli.ts"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "files": [
+    "src"
+  ]
+}
