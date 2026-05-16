@@ -1,11 +1,22 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 export const CONFIG_FILE = ".cmux-workspace.json";
 
 export type Config = {
   setup?: string | string[];
+  worktreesDir?: string;
 };
+
+export function resolveWorktreesDir(repoRoot: string, cfg: Config | null): string {
+  const raw = cfg?.worktreesDir;
+  if (!raw) return path.dirname(repoRoot);
+  const expanded = raw.startsWith("~/") || raw === "~"
+    ? path.join(os.homedir(), raw.slice(1))
+    : raw;
+  return path.isAbsolute(expanded) ? expanded : path.resolve(repoRoot, expanded);
+}
 
 export function configPath(repoRoot: string): string {
   return path.join(repoRoot, CONFIG_FILE);
@@ -43,7 +54,15 @@ export function readConfig(repoRoot: string): Config | null {
     throw new Error(`${CONFIG_FILE} 'setup' must be a string or array of strings`);
   }
 
-  return { setup: setup as string | string[] | undefined };
+  const worktreesDir = obj.worktreesDir;
+  if (worktreesDir !== undefined && typeof worktreesDir !== "string") {
+    throw new Error(`${CONFIG_FILE} 'worktreesDir' must be a string`);
+  }
+
+  return {
+    setup: setup as string | string[] | undefined,
+    worktreesDir: worktreesDir as string | undefined,
+  };
 }
 
 export function setupCommands(cfg: Config | null): string[] {

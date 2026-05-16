@@ -28,7 +28,21 @@ Example output:
 }
 ```
 
-`setup` may be a `string` or `string[]`. Arrays are joined with ` && `.
+### Config schema
+
+| Field          | Type                  | Default                       | Notes                                                                 |
+| -------------- | --------------------- | ----------------------------- | --------------------------------------------------------------------- |
+| `setup`        | `string \| string[]`  | none                          | Joined with ` && ` when array. Skipped if absent.                     |
+| `worktreesDir` | `string`              | repo's parent directory       | Where new worktrees are placed. Supports `~`, absolute, or relative-to-repo paths. Created if missing. Final worktree path is `<worktreesDir>/<repo>-<branch>`. |
+
+Example with a dedicated worktrees folder:
+
+```json
+{
+  "worktreesDir": "~/worktrees",
+  "setup": ["pnpm install", "pnpm run setup"]
+}
+```
 
 ## Spawn a workspace
 

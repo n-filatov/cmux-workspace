@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { repoRoot, trackedDirty, worktreeRemoveForce } from "../git.ts";
+import { readConfig, resolveWorktreesDir } from "../config.ts";
 import { rpcOrThrow } from "../cmux.ts";
 
 export async function clean(branch: string): Promise<void> {
@@ -10,7 +11,9 @@ export async function clean(branch: string): Promise<void> {
 
   const root = repoRoot();
   const repoName = path.basename(root);
-  const worktreePath = path.join(path.dirname(root), `${repoName}-${branch}`);
+  const cfg = readConfig(root);
+  const worktreesDir = resolveWorktreesDir(root, cfg);
+  const worktreePath = path.join(worktreesDir, `${repoName}-${branch}`);
 
   if (fs.existsSync(worktreePath)) {
     const dirty = trackedDirty(worktreePath);

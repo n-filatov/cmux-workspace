@@ -1,6 +1,7 @@
+import fs from "node:fs";
 import path from "node:path";
 import { repoRoot } from "../git.ts";
-import { readConfig, setupCommands, CONFIG_FILE } from "../config.ts";
+import { readConfig, resolveWorktreesDir, setupCommands, CONFIG_FILE } from "../config.ts";
 import { rpcOrThrow } from "../cmux.ts";
 
 export async function newWorkspace(branch: string): Promise<void> {
@@ -10,13 +11,16 @@ export async function newWorkspace(branch: string): Promise<void> {
 
   const root = repoRoot();
   const repoName = path.basename(root);
-  const worktreePath = path.join(path.dirname(root), `${repoName}-${branch}`);
 
   const cfg = readConfig(root);
   if (!cfg) {
     console.log(`No ${CONFIG_FILE} found in ${root}; skipping setup. Run 'cmw init' to generate one.`);
   }
   const setup = setupCommands(cfg);
+
+  const worktreesDir = resolveWorktreesDir(root, cfg);
+  fs.mkdirSync(worktreesDir, { recursive: true });
+  const worktreePath = path.join(worktreesDir, `${repoName}-${branch}`);
 
   // 1. Create workspace
   const created = await rpcOrThrow("workspace.create", {});
