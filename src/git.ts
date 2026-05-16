@@ -37,3 +37,13 @@ export function trackedDirty(path: string): string[] {
     .split("\n")
     .filter((line) => line.length > 0 && !line.startsWith("??"));
 }
+
+export function branchExists(branch: string): boolean {
+  const res = spawnSync("git", ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`]);
+  return res.status === 0;
+}
+
+export function worktreeRegistered(path: string): boolean {
+  const out = execSync("git worktree list --porcelain", { encoding: "utf8" });
+  return out.split("\n").some((line) => line === `worktree ${path}`);
+}
