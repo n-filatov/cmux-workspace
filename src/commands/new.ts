@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { repoRoot, branchExists, worktreeRegistered } from "../git.ts";
-import { readConfig, resolveWorktreesDir, setupCommands, CONFIG_FILE } from "../config.ts";
+import { repoRoot, branchExists, worktreeRegistered, worktreeAdd } from "../git.ts";
+import { readConfig, resolveWorktreesDir, tabCommands, CONFIG_FILE } from "../config.ts";
 import { rpcOrThrow } from "../cmux.ts";
 import { confirmYesDefault } from "../prompt.ts";
 
@@ -16,7 +16,7 @@ export async function newWorkspace(branch: string): Promise<void> {
   const repoName = path.basename(root);
 
   const cfg = readConfig(root);
-  const setup = setupCommands(cfg);
+  const tabs = tabCommands(cfg);
 
   const worktreesDir = resolveWorktreesDir(root, cfg);
   fs.mkdirSync(worktreesDir, { recursive: true });
@@ -32,7 +32,6 @@ export async function newWorkspace(branch: string): Promise<void> {
     );
   }
 
-  const gitParts: string[] = [];
   let runSetup = true;
 
   if (isRegistered) {
@@ -40,18 +39,23 @@ export async function newWorkspace(branch: string): Promise<void> {
     runSetup = false;
   } else if (branchExists(branch)) {
     console.log(`Branch '${branch}' exists; checking it out into a new worktree`);
-    gitParts.push(`git worktree add ${shellQuote(worktreePath)} ${shellQuote(branch)}`);
+    worktreeAdd(worktreePath, branch, { newBranch: false });
   } else {
-    gitParts.push(`git worktree add ${shellQuote(worktreePath)} -b ${shellQuote(branch)}`);
+    worktreeAdd(worktreePath, branch);
   }
 
-  gitParts.push(`cd ${shellQuote(worktreePath)}`);
+  const cdPart = `cd ${shellQuote(worktreePath)}`;
 
-  const parts = runSetup ? [...gitParts, ...setup] : gitParts;
-  if (runSetup && setup.length === 0 && !cfg) {
+  if (runSetup && tabs.length === 0 && !cfg) {
     console.log(`No ${CONFIG_FILE} found in ${root}; skipping setup. Run 'cmw init' to generate one.`);
   }
-  const cmd = parts.join(" && ");
+
+  // Build per-tab command strings. Reused workspaces skip per-tab setup
+  // commands and just cd into the worktree in a single pane.
+  const effectiveTabs = runSetup && tabs.length > 0 ? tabs : [[]];
+  const tabCmds: string[] = effectiveTabs.map((cmds) => {
+    return [cdPart, ...cmds].join(" && ");
+  });
 
   // Find or create the cmux workspace.
   const list = await rpcOrThrow("workspace.list", {});
@@ -75,17 +79,31 @@ export async function newWorkspace(branch: string): Promise<void> {
     await rpcOrThrow("workspace.rename", { workspace_id: workspaceId, title: branch });
   }
 
+  await rpcOrThrow("workspace.select", { workspace_id: workspaceId });
+
   const surfaces = await rpcOrThrow("surface.list", { workspace_id: workspaceId });
-  const surfaceId: string | undefined = surfaces.surfaces?.[0]?.id;
-  if (!surfaceId) {
+  const firstId: string | undefined = surfaces.surfaces?.[0]?.id;
+  if (!firstId) {
     throw new Error("Workspace has no surface");
   }
 
-  await rpcOrThrow("surface.send_text", { surface_id: surfaceId, text: cmd });
-  await rpcOrThrow("surface.send_key", { surface_id: surfaceId, key: "enter" });
-  await rpcOrThrow("workspace.select", { workspace_id: workspaceId });
+  await sendCommand(firstId, tabCmds[0]);
+
+  for (let i = 1; i < tabCmds.length; i++) {
+    const created = await rpcOrThrow("surface.create", { workspace_id: workspaceId });
+    const newId: string | undefined = created?.surface_id;
+    if (!newId) {
+      throw new Error(`surface.create did not return surface_id (tab ${i + 1})`);
+    }
+    await sendCommand(newId, tabCmds[i]);
+  }
 
   console.log(`cmux workspace '${branch}' ready at ${worktreePath}`);
+}
+
+async function sendCommand(surfaceId: string, cmd: string): Promise<void> {
+  await rpcOrThrow("surface.send_text", { surface_id: surfaceId, text: cmd });
+  await rpcOrThrow("surface.send_key", { surface_id: surfaceId, key: "enter" });
 }
 
 function shellQuote(s: string): string {

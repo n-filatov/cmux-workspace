@@ -6,6 +6,7 @@ export const CONFIG_FILE = ".cmux-workspace.json";
 
 export type Config = {
   setup?: string | string[];
+  tabs?: string[][];
   worktreesDir?: string;
 };
 
@@ -54,6 +55,19 @@ export function readConfig(repoRoot: string): Config | null {
     throw new Error(`${CONFIG_FILE} 'setup' must be a string or array of strings`);
   }
 
+  const tabs = obj.tabs;
+  if (
+    tabs !== undefined &&
+    !(
+      Array.isArray(tabs) &&
+      tabs.every(
+        (t) => Array.isArray(t) && t.every((s) => typeof s === "string"),
+      )
+    )
+  ) {
+    throw new Error(`${CONFIG_FILE} 'tabs' must be an array of arrays of strings`);
+  }
+
   const worktreesDir = obj.worktreesDir;
   if (worktreesDir !== undefined && typeof worktreesDir !== "string") {
     throw new Error(`${CONFIG_FILE} 'worktreesDir' must be a string`);
@@ -61,13 +75,26 @@ export function readConfig(repoRoot: string): Config | null {
 
   return {
     setup: setup as string | string[] | undefined,
+    tabs: tabs as string[][] | undefined,
     worktreesDir: worktreesDir as string | undefined,
   };
 }
 
-export function setupCommands(cfg: Config | null): string[] {
-  if (!cfg?.setup) return [];
-  return Array.isArray(cfg.setup) ? cfg.setup : [cfg.setup];
+export function tabCommands(cfg: Config | null): string[][] {
+  if (!cfg) return [];
+  if (cfg.tabs) {
+    if (cfg.setup !== undefined) {
+      console.warn(
+        `${CONFIG_FILE}: both 'tabs' and 'setup' are set; using 'tabs' and ignoring 'setup'.`,
+      );
+    }
+    return cfg.tabs;
+  }
+  if (cfg.setup) {
+    const arr = Array.isArray(cfg.setup) ? cfg.setup : [cfg.setup];
+    return [arr];
+  }
+  return [];
 }
 
 type PkgManager = "pnpm" | "bun" | "yarn" | "npm";

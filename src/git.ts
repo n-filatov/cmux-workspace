@@ -11,10 +11,11 @@ export function repoRoot(): string {
   }
 }
 
-export function worktreeAdd(path: string, branch: string): void {
-  const res = spawnSync("git", ["worktree", "add", path, "-b", branch], {
-    stdio: "inherit",
-  });
+export function worktreeAdd(path: string, branch: string, opts: { newBranch?: boolean } = {}): void {
+  const args = opts.newBranch === false
+    ? ["worktree", "add", path, branch]
+    : ["worktree", "add", path, "-b", branch];
+  const res = spawnSync("git", args, { stdio: "inherit" });
   if (res.status !== 0) {
     throw new Error(`git worktree add failed`);
   }

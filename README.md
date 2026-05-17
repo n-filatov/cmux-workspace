@@ -32,7 +32,8 @@ Example output:
 
 | Field          | Type                  | Default                       | Notes                                                                 |
 | -------------- | --------------------- | ----------------------------- | --------------------------------------------------------------------- |
-| `setup`        | `string \| string[]`  | none                          | Joined with ` && ` when array. Skipped if absent.                     |
+| `setup`        | `string \| string[]`  | none                          | Single-pane setup. Joined with ` && ` when array. Skipped if absent. Ignored when `tabs` is set. |
+| `tabs`         | `string[][]`          | none                          | Opens one cmux terminal tab per entry (stacked in the same pane, not split). Each inner array is the command pipeline for that tab, joined with ` && `. |
 | `worktreesDir` | `string`              | repo's parent directory       | Where new worktrees are placed. Supports `~`, absolute, or relative-to-repo paths. Created if missing. Final worktree path is `<worktreesDir>/<repo>-<branch>`. |
 
 Example with a dedicated worktrees folder:
@@ -41,6 +42,17 @@ Example with a dedicated worktrees folder:
 {
   "worktreesDir": "~/worktrees",
   "setup": ["pnpm install", "pnpm run setup"]
+}
+```
+
+Example with two panes — one runs setup, the other launches Claude:
+
+```json
+{
+  "tabs": [
+    ["pnpm install", "pnpm run setup"],
+    ["claude"]
+  ]
 }
 ```
 
